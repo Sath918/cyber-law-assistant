@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Settings - Cyber Law Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .profile-container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+        }
+        
+        .profile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .back-btn {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.3s;
+        }
+
+        .back-btn:hover {
+            color: var(--primary-blue);
+        }
+
+        .profile-pic-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 15px;
+        }
+
+        .profile-pic {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary-blue);
+        }
+
+        .upload-btn {
+            background-color: var(--user-msg-bg);
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .upload-btn:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+    </style>
+</head>
+<body class="auth-body" style="display:block; overflow-y:auto; padding-top: 20px;">
+    
+    <div class="profile-container">
+        <div class="profile-header">
+            <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Chat</a>
+            <h2>Profile Settings</h2>
+            <div style="width: 80px;"></div> <!-- Spacer for flex alignment -->
+        </div>
+
+        <div class="profile-pic-section">
+            <img src="https://ui-avatars.com/api/?name=User&background=3b82f6&color=fff" alt="Profile Picture" class="profile-pic" id="profile-img-preview">
+            <label for="profile-pic-input" class="upload-btn"><i class="fas fa-camera"></i> Change Photo</label>
+            <input type="file" id="profile-pic-input" hidden accept="image/png, image/jpeg, image/jpg">
+        </div>
+
+        <form id="profile-form" class="auth-form">
+            <div class="form-group">
+                <label for="prof-username">Username</label>
+                <div class="input-icon-wrapper">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="prof-username" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="prof-email">Email</label>
+                <div class="input-icon-wrapper">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="prof-email" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="prof-password">New Password (Leave blank to keep current)</label>
+                <div class="input-icon-wrapper">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="prof-password" placeholder="••••••••">
+                </div>
+            </div>
+            
+            <div id="profile-error" class="error-message hidden"></div>
+            
+            <button type="submit" class="auth-btn" style="background-color: var(--success-green);">Save Changes</button>
+        </form>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script>
+        const API_BASE_URL = 'http://localhost:5000';
+        const userId = localStorage.getItem('user_id');
+
+        if (!userId) window.location.href = 'login.html';
+
+        // Elements
+        const form = document.getElementById('profile-form');
+        const usernameInput = document.getElementById('prof-username');
+        const emailInput = document.getElementById('prof-email');
+        const passwordInput = document.getElementById('prof-password');
+        const profileImg = document.getElementById('profile-img-preview');
+        const picInput = document.getElementById('profile-pic-input');
+        const errorDiv = document.getElementById('profile-error');
+
+        let selectedPic = null;
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.borderLeftColor = isError ? '#ef4444' : '#4d7c35';
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        // Fetch User Data
+        async function loadProfile() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/profile/${userId}`);
+                const data = await res.json();
+                
+                if (res.ok) {
+                    usernameInput.value = data.username;
+                    emailInput.value = data.email;
+                    if(data.profile_pic && data.profile_pic !== 'default.png') {
+                        profileImg.src = `${API_BASE_URL}/uploads/profiles/${data.profile_pic}`;
+                    } else {
+                        profileImg.src = `https://ui-avatars.com/api/?name=${data.username}&background=3b82f6&color=fff`;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load profile", e);
+            }
+        }
+        
+        loadProfile();
+
+        // Handle Picture Select
+        picInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                selectedPic = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    profileImg.src = evt.target.result;
+                }
+                reader.readAsDataURL(selectedPic);
+            }
+        });
+
+        // Handle form submit
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = form.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            const formData = new FormData();
+            formData.append('user_id', userId);
+            formData.append('username', usernameInput.value);
+            formData.append('email', emailInput.value);
+            if (passwordInput.value) {
+                formData.append('password', passwordInput.value);
+            }
+            if (selectedPic) {
+                formData.append('profile_pic', selectedPic);
+            }
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/profile/update`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast("Profile updated successfully!");
+                    localStorage.setItem('username', usernameInput.value);
+                    if (data.profile_pic) {
+                        localStorage.setItem('profile_pic', data.profile_pic);
+                    }
+                    setTimeout(() => window.location.href = 'index.html', 1500);
+                } else {
+                    errorDiv.textContent = data.error;
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                errorDiv.textContent = "Server error.";
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Save Changes';
+            }
+        });
+    </script>
+</body>
+</html>
