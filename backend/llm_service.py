@@ -1,60 +1,86 @@
-import requests
-import json
 import os
+import traceback
 
 from dotenv import load_dotenv
+from groq import Groq
+
 from backend.rag_pipeline import retrieve_user_context
 
 load_dotenv()
 
 # =========================================================
-# CONFIGURATION
+# API KEYS
 # =========================================================
-
-#OLLAMA_API_URL = "http://localhost:11434/api/chat"
-#OLLAMA_MODEL_NAME = "phi3:mini"
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# =========================================================
+# GROQ CLIENT
+# =========================================================
+
+client = None
+
+if GROQ_API_KEY:
+    client = Groq(api_key=GROQ_API_KEY)
 
 # =========================================================
 # SYSTEM PROMPT
 # =========================================================
 
 SYSTEM_PROMPT_BASE = """
-You are an intelligent AI Cyber Law Assistant designed to provide accurate, reliable, and user-friendly guidance related to cyber laws, online safety, digital rights, cybercrime awareness, and the Information Technology Act, 2000.
+You are CyberLex AI, an advanced AI-powered Cyber Law Assistant.
 
-BEHAVIOR GUIDELINES:
-- Respond naturally, professionally, and conversationally like a real-world AI assistant.
-- Maintain a friendly and supportive tone while staying informative and trustworthy.
-- Understand the user's intent clearly before generating responses.
-- Maintain continuity with previous conversations and user context.
-- For greetings or casual conversations, reply in a human-like and engaging manner.
-- For cyber law or legal queries, provide accurate, context-aware, and simplified explanations.
-- Explain legal and technical concepts in easy-to-understand language for normal users.
-- When applicable, mention relevant cyber law sections, penalties, rights, safety measures, or preventive actions.
-- For harmful, illegal, or unethical activities, refuse politely and encourage safe and legal behavior.
-- If the query is unclear, ask short follow-up questions instead of assuming information.
-- Avoid robotic or repetitive responses.
-- Never generate misleading legal claims or false information.
-- Do NOT use prefixes like 'Assistant:' or 'AI:' in responses.
+Your expertise includes:
+- Indian Cyber Laws
+- Information Technology Act 2000
+- Cybercrime awareness
+- Online fraud prevention
+- Banking scams
+- Digital arrest scams
+- Social media hacking
+- Privacy rights
+- Cybersecurity best practices
+- Legal awareness and cyber safety guidance
 
-RESPONSE STYLE:
-- Adapt response length based on the complexity of the user's query.
-- For simple questions, provide concise and meaningful answers.
-- For detailed legal or technical questions, generate clear, structured, and comprehensive explanations.
-- Use bullet points or step-by-step explanations when useful.
-- Ensure responses are complete, logically connected, and contextually relevant.
-- Prioritize clarity, accuracy, readability, and user understanding.
+CORE BEHAVIOR:
+- Respond naturally like a real intelligent assistant.
+- Maintain conversational continuity.
+- Avoid robotic, repetitive, or template-like responses.
+- Understand user intent deeply before answering.
+- Be clear, practical, and trustworthy.
+- Explain legal concepts in simple language.
+- Mention relevant IT Act sections when applicable.
+- Provide actionable safety recommendations.
+- Structure long answers using headings or bullet points.
+- Never hallucinate fake laws or punishments.
+- Politely refuse illegal or unethical requests.
 
-PRIMARY ROLE:
-Your main objective is to help users understand cyber laws, identify cybercrimes, stay safe online, and receive reliable legal awareness guidance through intelligent AI-powered conversations.
+CONVERSATION STYLE:
+- Friendly and professional
+- Human-like and engaging
+- Context-aware
+- Smart follow-up explanations
+- Avoid repeating previous responses
+- Keep answers concise unless detailed explanation is required
+
+SPECIAL INSTRUCTION:
+If the user asks non-cyber topics,
+politely answer briefly and redirect toward cyber law or cybersecurity topics.
+
+Never say:
+'I am just an AI'
+'I cannot help'
+'I am your AI assistant'
+
+Instead provide intelligent conversational responses.
 """
+
 # =========================================================
 # LIMIT RESPONSE LENGTH
 # =========================================================
 
-def limit_response(text, max_words=150):
+def limit_response(text, max_words=250):
 
     words = text.split()
 
@@ -71,13 +97,59 @@ def limit_response(text, max_words=150):
     return limited + "..."
 
 # =========================================================
+# ENHANCE RESPONSE STYLE
+# =========================================================
+
+def enhance_response_style(text):
+
+    text = text.strip()
+
+    replacements = {
+        "Section": "⚖️ Section",
+        "Punishment": "🚨 Punishment",
+        "Safety Tips": "🛡️ Safety Tips",
+        "Steps": "✅ Steps",
+        "Prevention": "🛡️ Prevention",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    return text
+
+# =========================================================
+# CYBER QUERY DETECTION
+# =========================================================
+
+def is_cyber_related_query(message):
+
+    cyber_keywords = [
+        "hack", "hacked", "fraud", "cyber",
+        "otp", "scam", "bank", "phishing",
+        "instagram", "whatsapp", "facebook",
+        "crime", "privacy", "it act",
+        "section", "malware", "virus",
+        "cyberbullying", "password",
+        "identity theft", "data leak"
+    ]
+
+    message = message.lower()
+
+    return any(
+        keyword in message
+        for keyword in cyber_keywords
+    )
+
+# =========================================================
 # MAIN RESPONSE FUNCTION
 # =========================================================
 
-def generate_ai_response(user_message,
-                         language_mode='en',
-                         history=None,
-                         user_id=None):
+def generate_ai_response(
+    user_message,
+    language_mode='en',
+    history=None,
+    user_id=None
+):
 
     return "".join(
         list(
@@ -94,10 +166,12 @@ def generate_ai_response(user_message,
 # STREAM RESPONSE FUNCTION
 # =========================================================
 
-def generate_ai_response_stream(user_message,
-                                language_mode='en',
-                                history=None,
-                                user_id=None):
+def generate_ai_response_stream(
+    user_message,
+    language_mode='en',
+    history=None,
+    user_id=None
+):
 
     # =====================================================
     # LANGUAGE SETTINGS
@@ -106,43 +180,40 @@ def generate_ai_response_stream(user_message,
     if language_mode == 'ta':
 
         lang_instructions = """
-        Reply only in Tamil.
-        Use clear and simple Tamil language.
-        Keep the response natural and easy to understand.
-        """
+Reply only in Tamil.
+Use clear and natural Tamil.
+Keep the response user-friendly and easy to understand.
+"""
 
     elif language_mode == 'tg':
 
         lang_instructions = """
-        Reply only in Tanglish (Tamil written in English letters).
-        Use natural conversational Tanglish commonly used by Tamil speakers.
-        Keep responses friendly, human-like, and easy to understand.
-        Avoid pure English sentences unless necessary for technical terms.
+Reply only in Tanglish (Tamil written in English letters).
 
-        Example Style:
-        "Idhu cyber crime category ku varum.
-        Neenga immediately complaint submit panna vendum."
-        """
+Use natural conversational Tanglish commonly used by Tamil speakers.
+
+Examples:
+- "Idhu cyber crime category ku varum."
+- "Neenga immediately complaint submit panna vendum."
+
+Avoid pure English unless technical terms are required.
+"""
 
     else:
 
         lang_instructions = """
-        Reply only in simple English.
-        Use professional, natural, and easy-to-understand language.
-        """
+Reply only in simple professional English.
+Keep responses natural, clear, and user-friendly.
+"""
 
     # =====================================================
-    # FINAL PROMPT
+    # CYBER DETECTION
     # =====================================================
 
-    FINAL_PROMPT = (
-        SYSTEM_PROMPT_BASE +
-        "\n\n" +
-        lang_instructions
-    )
+    is_cyber = is_cyber_related_query(user_message)
 
     # =====================================================
-    # RAG CONTEXT RETRIEVAL
+    # RAG CONTEXT
     # =====================================================
 
     try:
@@ -150,15 +221,17 @@ def generate_ai_response_stream(user_message,
         context = retrieve_user_context(
             user_id,
             user_message,
-            k=2
+            k=3
         )
 
-        context = context[:2000]
+        context = context[:2500]
 
     except Exception as e:
 
+        print("RAG ERROR:")
+        traceback.print_exc()
+
         context = ""
-        print("RAG Error:", e)
 
     # =====================================================
     # CHAT HISTORY
@@ -168,146 +241,122 @@ def generate_ai_response_stream(user_message,
 
     if history:
 
-        for chat in history[-5:]:
+        recent_history = history[-6:]
 
-            history_text += (
-                f"\nUser: {chat['message']}"
-                f"\nAssistant: {chat['response']}"
-            )
+        for chat in recent_history:
+
+            user_msg = chat.get("message", "")
+            bot_msg = chat.get("response", "")
+
+            history_text += f"""
+
+User: {user_msg}
+
+Assistant: {bot_msg}
+
+"""
 
     # =====================================================
     # SYSTEM INSTRUCTION
     # =====================================================
 
     system_instruction = f"""
-{FINAL_PROMPT}
+{SYSTEM_PROMPT_BASE}
 
-Context:
-{context if context else "Use general knowledge of Cyber Law IT Act 2000."}
+{lang_instructions}
+
+Context Information:
+{context if context else "Use general cyber law and cybersecurity knowledge."}
 
 Conversation History:
 {history_text}
 """
 
     # =====================================================
-    # 1. GROQ API (PRIMARY)
+    # NON-CYBER HANDLING
     # =====================================================
 
-    if GROQ_API_KEY and GROQ_API_KEY.startswith("gsk_"):
+    if not is_cyber:
+
+        system_instruction += """
+
+The user's question may not be directly related to cyber law.
+
+Respond politely and briefly.
+Then intelligently redirect toward cyber awareness or cybersecurity topics if suitable.
+"""
+
+    # =====================================================
+    # ENHANCED USER MESSAGE
+    # =====================================================
+
+    enhanced_user_message = f"""
+User Query:
+{user_message}
+
+Instructions:
+- Give practical and intelligent response
+- Mention cyber law sections if relevant
+- Avoid robotic replies
+- Be conversational and human-like
+"""
+
+    # =====================================================
+    # GROQ RESPONSE
+    # =====================================================
+
+    if client:
 
         try:
 
-            from groq import Groq
-
-            client = Groq(api_key=GROQ_API_KEY)
-
             completion = client.chat.completions.create(
 
-                model="llama-3.1-8b-instant",
+                model="llama-3.3-70b-versatile",
 
                 messages=[
+
                     {
                         "role": "system",
                         "content": system_instruction
                     },
+
                     {
                         "role": "user",
-                        "content": user_message
+                        "content": enhanced_user_message
                     }
                 ],
 
-                temperature=0.3,
+                temperature=0.5,
+                top_p=0.9,
                 max_tokens=1024,
                 stream=True
             )
+
+            collected_response = ""
 
             for chunk in completion:
 
                 content = chunk.choices[0].delta.content
 
-                if content is not None:
-                    yield content
+                if content:
+
+                    collected_response += content
+
+                    styled_content = enhance_response_style(
+                        content
+                    )
+
+                    yield styled_content
 
             return
 
         except Exception as e:
 
-            print(f"Groq Error: {e}")
+            print("GROQ ERROR:")
+            traceback.print_exc()
 
     # =====================================================
-    # 2. OLLAMA (FALLBACK)
-    # =====================================================
-
-    '''payload = {
-
-        "model": OLLAMA_MODEL_NAME,
-
-        "messages": [
-            {
-                "role": "system",
-                "content": system_instruction
-            },
-            {
-                "role": "user",
-                "content": user_message
-            }
-        ],
-
-        "stream": True,
-
-        "options": {
-            "num_ctx": 4096,
-            "temperature": 0.3,
-            "top_k": 20,
-            "repeat_penalty": 1.2,
-            "num_predict": 300
-        }
-    }
-
-    try:
-
-        response = requests.post(
-            OLLAMA_API_URL,
-            json=payload,
-            stream=True,
-            timeout=120
-        )
-
-        if response.status_code == 200:
-
-            for line in response.iter_lines():
-
-                if line:
-
-                    decoded = json.loads(
-                        line.decode('utf-8')
-                    )
-
-                    if (
-                        "message" in decoded and
-                        "content" in decoded["message"]
-                    ):
-
-                        chunk = decoded["message"]["content"]
-
-                        if chunk:
-                            yield chunk
-
-            return
-
-        else:
-
-            print(
-                f"Ollama Error Status: "
-                f"{response.status_code}"
-            )
-
-    except Exception as e:
-
-        print(f"Ollama Connection Error: {e}")'''
-
-    # =====================================================
-    # 3. GEMINI (FALLBACK 2)
+    # GEMINI FALLBACK
     # =====================================================
 
     if (
@@ -327,37 +376,41 @@ Conversation History:
 
             response = model.generate_content(
                 system_instruction +
-                "\n\nUser Question: " +
-                user_message,
+                "\n\n" +
+                enhanced_user_message,
                 stream=True
             )
 
             for chunk in response:
 
                 if chunk.text:
-                    yield chunk.text
+
+                    styled_text = enhance_response_style(
+                        chunk.text
+                    )
+
+                    yield styled_text
 
             return
 
         except Exception as e:
 
-            print(f"Gemini Error: {e}")
+            print("GEMINI ERROR:")
+            traceback.print_exc()
 
     # =====================================================
-    # 4. DATABASE FALLBACK
+    # SMART FALLBACK RESPONSE
     # =====================================================
 
-    if context:
+    fallback_response = f"""
+⚠️ AI services are currently unavailable.
 
-        yield (
-            "AI services are currently unavailable.\n\n"
-            "Here is information from the Cyber Law Database:\n\n"
-        )
+However, based on available cyber law knowledge:
 
-        yield context
+{context if context else "Please try again after some time."}
 
-    else:
+🛡️ Safety Tip:
+Always avoid sharing OTPs, passwords, and personal banking details online.
+"""
 
-        from backend.chatbot import generate_response
-
-        yield generate_response(user_message)
+    yield fallback_response
