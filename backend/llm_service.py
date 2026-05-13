@@ -11,8 +11,8 @@ load_dotenv()
 # CONFIGURATION
 # =========================================================
 
-OLLAMA_API_URL = "http://localhost:11434/api/chat"
-OLLAMA_MODEL_NAME = "phi3:mini"
+#OLLAMA_API_URL = "http://localhost:11434/api/chat"
+#OLLAMA_MODEL_NAME = "phi3:mini"
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -238,7 +238,7 @@ Conversation History:
     # 2. OLLAMA (FALLBACK)
     # =====================================================
 
-    payload = {
+    '''payload = {
 
         "model": OLLAMA_MODEL_NAME,
 
@@ -304,7 +304,7 @@ Conversation History:
 
     except Exception as e:
 
-        print(f"Ollama Connection Error: {e}")
+        print(f"Ollama Connection Error: {e}")'''
 
     # =====================================================
     # 3. GEMINI (FALLBACK 2)
@@ -358,6 +358,6 @@ Conversation History:
 
     else:
 
-        from chatbot import generate_response
+        from backend.chatbot import generate_response
 
         yield generate_response(user_message)
