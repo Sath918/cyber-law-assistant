@@ -3,7 +3,7 @@ import json
 import os
 
 from dotenv import load_dotenv
-from rag_pipeline import retrieve_user_context
+from backend.rag_pipeline import retrieve_user_context
 
 load_dotenv()
 
