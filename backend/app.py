@@ -5,9 +5,9 @@ from werkzeug.utils import secure_filename
 import sqlite3
 import os
 
-from database import get_db_connection, init_db
-from llm_service import generate_ai_response, generate_ai_response_stream
-from rag_pipeline import add_document_to_user_index
+from backend.database import get_db_connection, init_db
+from backend.llm_service import generate_ai_response, generate_ai_response_stream
+from backend.rag_pipeline import add_document_to_user_index
 from flask import Response
 
 frontend_folder = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend'))
