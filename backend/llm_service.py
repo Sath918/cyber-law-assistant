@@ -6,7 +6,8 @@ from groq import Groq
 
 from backend.rag_pipeline import retrieve_user_context
 
-load_dotenv()
+dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(dotenv_path)
 
 # =========================================================
 # API KEYS

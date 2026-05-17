@@ -5,13 +5,14 @@ import requests
 
 def check_env():
     print("--- Environment Check ---")
-    if not os.path.exists(".env"):
-        print("MISSING: .env file")
+    dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+    if not os.path.exists(dotenv_path):
+        print(f"MISSING: {dotenv_path}")
     else:
-        print("EXISTS: .env file")
+        print(f"EXISTS: {dotenv_path}")
     
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(dotenv_path)
     
     keys = ["GROQ_API_KEY", "GEMINI_API_KEY"]
     for key in keys:
@@ -23,11 +24,11 @@ def check_env():
 
 def check_db():
     print("\n--- Database Check ---")
-    db_path = "cyber_law.db"
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database', 'chatbot.db')
     if not os.path.exists(db_path):
-        print("MISSING: cyber_law.db (Will be created on first run)")
+        print(f"MISSING: {db_path} (Will be created on first run)")
     else:
-        print("EXISTS: cyber_law.db")
+        print(f"EXISTS: {db_path}")
         try:
             conn = sqlite3.connect(db_path)
             tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()
