@@ -4,7 +4,6 @@ requests
 python-dotenv
 langchain
 langchain-community
-sentence-transformers
 pypdf
 reportlab
 groq
@@ -12,4 +11,5 @@ faiss-cpu
 google-generativeai
 docx2txt
 gunicorn
+
 

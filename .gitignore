@@ -22,6 +22,9 @@ file_cache/
 backend/file_cache/
 user_indices/
 backend/user_indices/
+faiss_index/
+backend/faiss_index/
+
 
 # Environment local secrets
 .env

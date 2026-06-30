@@ -1,20 +1,139 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import FAISS
+
+# Conditional import to avoid loading PyTorch/Transformers on Render
+HuggingFaceEmbeddings = None
+if not os.getenv("RENDER"):
+    try:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+    except ImportError:
+        pass
+
+
 
 DATASET_PATH = os.path.join(os.path.dirname(__file__), 'Cyberlaw_dataset.pdf')
 FAISS_PATH = os.path.join(os.path.dirname(__file__), 'faiss_index')
 
-# Use sentence transformers directly to avoid external API calls
-# Provide an embedding model (all-MiniLM-L6-v2 is small and fast)
+class APIEmbeddings(Embeddings):
+    def __init__(self):
+        self.gemini_key = os.getenv("GEMINI_API_KEY")
+        self.groq_key = os.getenv("GROQ_API_KEY")
+        
+        self.client_type = None
+        if self.gemini_key and self.gemini_key != "your_gemini_api_key_here":
+            self.client_type = "gemini"
+            import google.generativeai as genai
+            genai.configure(api_key=self.gemini_key)
+        elif self.groq_key and self.groq_key.startswith("gsk_"):
+            self.client_type = "groq"
+            from groq import Groq
+            self.groq_client = Groq(api_key=self.groq_key)
+        else:
+            self.client_type = "mock"
+            print("WARNING: No valid GEMINI_API_KEY or GROQ_API_KEY found. Using mock embeddings (semantic search will not work).")
+
+    def embed_documents(self, texts):
+        if not texts:
+            return []
+        
+        if self.client_type == "gemini":
+            import google.generativeai as genai
+            try:
+                response = genai.embed_content(
+                    model="models/text-embedding-004",
+                    content=texts,
+                    task_type="retrieval_document"
+                )
+                return response['embedding']
+            except Exception as e:
+                print("Gemini embed documents error, falling back to individual calls:", e)
+                embeddings = []
+                for text in texts:
+                    try:
+                        res = genai.embed_content(
+                            model="models/text-embedding-004",
+                            content=text,
+                            task_type="retrieval_document"
+                        )
+                        embeddings.append(res['embedding'])
+                    except Exception as inner_e:
+                        print("Gemini individual embed error:", inner_e)
+                        embeddings.append([0.0] * 768)
+                return embeddings
+                
+        elif self.client_type == "groq":
+            try:
+                response = self.groq_client.embeddings.create(
+                    model="nomic-embed-text-v1.5",
+                    input=texts
+                )
+                return [item.embedding for item in response.data]
+            except Exception as e:
+                print("Groq embed documents error, falling back to individual calls:", e)
+                embeddings = []
+                for text in texts:
+                    try:
+                        res = self.groq_client.embeddings.create(
+                            model="nomic-embed-text-v1.5",
+                            input=text
+                        )
+                        embeddings.append(res.data[0].embedding)
+                    except Exception as inner_e:
+                        print("Groq individual embed error:", inner_e)
+                        embeddings.append([0.0] * 768)
+                return embeddings
+        else:
+            return [[0.0] * 768 for _ in texts]
+
+    def embed_query(self, text):
+        if self.client_type == "gemini":
+            import google.generativeai as genai
+            try:
+                response = genai.embed_content(
+                    model="models/text-embedding-004",
+                    content=text,
+                    task_type="retrieval_query"
+                )
+                return response['embedding']
+            except Exception as e:
+                print("Gemini embed query error:", e)
+                return [0.0] * 768
+        elif self.client_type == "groq":
+            try:
+                response = self.groq_client.embeddings.create(
+                    model="nomic-embed-text-v1.5",
+                    input=text
+                )
+                return response.data[0].embedding
+            except Exception as e:
+                print("Groq embed query error:", e)
+                return [0.0] * 768
+        else:
+            return [0.0] * 768
+
 _embeddings = None
 
 def get_embeddings():
     global _embeddings
-    if _embeddings is None:
+    if _embeddings is not None:
+        return _embeddings
+        
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if os.getenv("RENDER") or (gemini_key and gemini_key != "your_gemini_api_key_here"):
+        _embeddings = APIEmbeddings()
+    elif HuggingFaceEmbeddings is not None:
+        print("Using local HuggingFaceEmbeddings (all-MiniLM-L6-v2)...")
         _embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    else:
+        print("WARNING: No valid API keys and HuggingFaceEmbeddings not available. Using mock embeddings.")
+        _embeddings = APIEmbeddings()
+        
     return _embeddings
 
 def build_vector_store():
@@ -52,13 +171,22 @@ def get_vector_store():
         return _vector_store
 
     # Load existing or build
-    if os.path.exists(FAISS_PATH):
+    if os.path.exists(os.path.join(FAISS_PATH, "index.faiss")):
         embeddings = get_embeddings()
-        _vector_store = FAISS.load_local(FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
-        return _vector_store
-    else:
-        _vector_store = build_vector_store()
-        return _vector_store
+        try:
+            store = FAISS.load_local(FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
+            # Verify dimension consistency
+            test_emb = embeddings.embed_query("test")
+            if store.index.d == len(test_emb):
+                _vector_store = store
+                return _vector_store
+            else:
+                print(f"FAISS index dimension ({store.index.d}) mismatch with embedding model ({len(test_emb)}). Rebuilding vector store...")
+        except Exception as e:
+            print(f"Failed to load existing FAISS index: {e}. Rebuilding vector store...")
+            
+    _vector_store = build_vector_store()
+    return _vector_store
 
 def retrieve_context(query, k=3):
     try:
