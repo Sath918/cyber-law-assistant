@@ -44,7 +44,7 @@ def check_db():
 
 def check_libraries():
     print("\n--- Library Check ---")
-    libs = ["flask", "flask_cors", "groq", "langchain", "faiss", "google.generativeai"]
+    libs = ["fastapi", "uvicorn", "multipart", "groq", "langchain", "faiss", "google.generativeai"]
     for lib in libs:
         try:
             __import__(lib.replace("-", "_"))

@@ -15,10 +15,10 @@ if not os.getenv("RENDER"):
     except ImportError:
         pass
 
-
-
-DATASET_PATH = os.path.join(os.path.dirname(__file__), 'Cyberlaw_dataset.pdf')
-FAISS_PATH = os.path.join(os.path.dirname(__file__), 'faiss_index')
+# Paths resolved to backend root directory
+base_backend_dir = os.path.dirname(os.path.dirname(__file__))
+DATASET_PATH = os.path.join(base_backend_dir, 'Cyberlaw_dataset.pdf')
+FAISS_PATH = os.path.join(base_backend_dir, 'faiss_index')
 
 class APIEmbeddings(Embeddings):
     def __init__(self):
@@ -201,7 +201,6 @@ def retrieve_context(query, k=3):
 def retrieve_global_context_with_score(query, k=3):
     try:
         store = get_vector_store()
-        # Returns list of (Document, score)
         results = store.similarity_search_with_score(query, k=k)
         return results
     except Exception as e:
@@ -213,7 +212,9 @@ import hashlib
 import re
 import shutil
 from langchain_core.documents import Document
-from database import get_db_connection
+
+# Import relative database module
+from .database import get_db_connection
 
 def compute_file_hash(filepath):
     hasher = hashlib.md5()
@@ -252,13 +253,13 @@ def extract_text_from_file(filepath):
         raise ValueError(f"Unsupported file format: {ext}")
 
 def get_file_cache_path(file_hash):
-    base_dir = os.path.dirname(__file__)
+    base_dir = os.path.dirname(os.path.dirname(__file__))
     cache_dir = os.path.join(base_dir, 'file_cache')
     os.makedirs(cache_dir, exist_ok=True)
     return os.path.join(cache_dir, f'file_{file_hash}')
 
 def get_session_faiss_path(session_id):
-    base_dir = os.path.dirname(__file__)
+    base_dir = os.path.dirname(os.path.dirname(__file__))
     user_faiss_dir = os.path.join(base_dir, 'user_indices')
     os.makedirs(user_faiss_dir, exist_ok=True)
     return os.path.join(user_faiss_dir, f'session_{session_id}')
@@ -377,7 +378,6 @@ def retrieve_session_context_with_score(session_id, query, k=3):
         if os.path.exists(session_path):
             embeddings = get_embeddings()
             store = FAISS.load_local(session_path, embeddings, allow_dangerous_deserialization=True)
-            # Returns list of (Document, score)
             results = store.similarity_search_with_score(query, k=k)
             return results
         return []
@@ -386,7 +386,7 @@ def retrieve_session_context_with_score(session_id, query, k=3):
         return []
 
 def get_user_faiss_path(user_id):
-    base_dir = os.path.dirname(__file__)
+    base_dir = os.path.dirname(os.path.dirname(__file__))
     user_faiss_dir = os.path.join(base_dir, 'user_indices')
     os.makedirs(user_faiss_dir, exist_ok=True)
     return os.path.join(user_faiss_dir, f'user_{user_id}')

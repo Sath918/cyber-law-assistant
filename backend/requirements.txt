@@ -1,5 +1,6 @@
-flask
-flask-cors
+fastapi
+uvicorn
+python-multipart
 requests
 python-dotenv
 langchain
@@ -11,5 +12,4 @@ faiss-cpu
 google-generativeai
 docx2txt
 gunicorn
-
-
+werkzeug

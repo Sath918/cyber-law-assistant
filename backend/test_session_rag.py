@@ -1,22 +1,31 @@
 import os
+import sys
 import sqlite3
 import shutil
-from database import init_db, get_db_connection
-from rag_pipeline import process_session_document, retrieve_session_context, rebuild_session_index
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+from app.database import init_db, get_db_connection
+from app.rag_pipeline import process_session_document, retrieve_session_context, rebuild_session_index
 
 def run_test():
     print("--- STARTING SESSION RAG INTEGRATION TEST ---")
     
-    # 1. Initialize DB
-    init_db()
-    
-    # 2. Setup temporary paths
+    # 1. Setup test parameters
     user_id = 9999
     session_id = "test_session_abc"
     other_session_id = "test_session_xyz"
     
     filename = "blue_cat_law.txt"
     filepath = os.path.join(os.path.dirname(__file__), filename)
+    
+    # 2. Initialize DB & clean leftover test records
+    init_db()
+    conn = get_db_connection()
+    conn.execute("DELETE FROM files WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM chat_history WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
     
     # Write temporary file
     with open(filepath, 'w', encoding='utf-8') as f:
@@ -108,14 +117,14 @@ def run_test():
         row = conn.execute("SELECT file_hash FROM files WHERE filepath = ?", (filepath,)).fetchone()
         conn.close()
         if row and row['file_hash']:
-            from rag_pipeline import get_file_cache_path
+            from app.rag_pipeline import get_file_cache_path
             cache_path = get_file_cache_path(row['file_hash'])
             if os.path.exists(cache_path):
                 shutil.rmtree(cache_path)
                 print(f"Cleaned up cached file index: {cache_path}")
                 
         # Clean session index folder
-        from rag_pipeline import get_session_faiss_path
+        from app.rag_pipeline import get_session_faiss_path
         session_path = get_session_faiss_path(session_id)
         if os.path.exists(session_path):
             shutil.rmtree(session_path)

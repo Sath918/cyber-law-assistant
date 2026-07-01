@@ -2,16 +2,17 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
-from rag_pipeline import retrieve_context, retrieve_user_context, retrieve_global_context_with_score, retrieve_session_context_with_score
 import urllib.parse
 import time
+
+# Relative package imports
+from .rag_pipeline import retrieve_context, retrieve_user_context, retrieve_global_context_with_score, retrieve_session_context_with_score
 
 load_dotenv()
 
 OLLAMA_API_URL = "http://localhost:11434/api/chat"
 OLLAMA_MODEL_NAME = "phi3:mini"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
 
 SYSTEM_PROMPT_BASE = """
 You are CyberLex AI, an advanced AI-powered Cyber Law Assistant.
@@ -73,7 +74,7 @@ def limit_response(text, max_words=60):
     return limited + "..."
 
 def has_session_files(session_id):
-    from database import get_db_connection
+    from .database import get_db_connection
     try:
         conn = get_db_connection()
         count = conn.execute("SELECT COUNT(*) FROM files WHERE session_id = ? AND status = 'ready'", (session_id,)).fetchone()[0]
@@ -317,7 +318,7 @@ def generate_llm_response_stream(user_message, system_instruction, context_text=
         yield "AI services are currently unavailable. Here is info from the Cyber Law Database:\n\n"
         yield context_text
     else:
-        from chatbot import generate_response
+        from .chatbot import generate_response
         yield generate_response(user_message)
 
 def generate_ai_response(user_message, language_mode='en', history=None, user_id=None, session_id='default'):
@@ -338,7 +339,6 @@ def generate_ai_response_stream(user_message, language_mode='en', history=None, 
     if intent == "Image Generation Request":
         yield "$$status: Generating image prompt and rendering...$$\n"
         img_resp = handle_image_generation(user_message)
-        # Stream image response in chunks
         for i in range(0, len(img_resp), 5):
             yield img_resp[i:i+5]
             time.sleep(0.01)
