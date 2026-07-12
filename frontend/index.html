@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Law Assistant Chatbot</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-top">
+                <button id="new-chat-btn" class="primary-btn"><i class="fas fa-plus"></i> New Chat</button>
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Search...">
+                </div>
+                
+                <div class="recent-chats-header">
+                    <span>Recent Chats</span>
+                    <button id="theme-toggle" class="icon-btn-small" title="Toggle Theme"><i class="fas fa-sun"></i></button>
+                </div>
+            </div>
+            
+            <div class="chat-history-container">
+                <ul id="chat-history-list" class="chat-history-list">
+                    <!-- History items will be populated here -->
+                </ul>
+            </div>
+            
+            <div class="sidebar-bottom">
+                <button id="clear-all-btn" class="success-btn"><i class="fas fa-plus"></i> Clear All</button>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <header class="chat-header">
+                <div class="header-content">
+                    <div class="header-title-container">
+                        <h2><i class="fas fa-scale-balanced"></i> Cyber Law Assistant</h2>
+                        <div class="subtitle-container">
+                            <span class="subtitle">AI-powered Legal Guidance System</span>
+                            <div id="connection-status" class="status-indicator offline" title="Server Status: Checking..."></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <select id="ui-language-select" class="lang-select" title="Select UI Language">
+                        <option value="en">English</option>
+                        <option value="ta">தமிழ்</option>
+                        <option value="tg">Tanglish</option>
+                    </select>
+                    <button class="icon-btn" title="Notifications"><i class="far fa-bell"></i></button>
+                    <button class="icon-btn" title="Settings"><i class="fas fa-wrench"></i></button>
+                    <div class="user-profile" id="user-info">
+                        <img src="https://ui-avatars.com/api/?name=User&background=random" alt="User Profile" id="user-avatar-img">
+                        <i class="fas fa-caret-down"></i>
+                        <div class="hidden-logout" id="dropdown-menu">
+                            <a href="profile.html"><i class="fas fa-user"></i> Profile</a>
+                            <button id="logout-btn" title="Logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="chat-messages" id="chat-messages">
+                <!-- Welcome / Default Message -->
+                <div class="message bot">
+                    <div class="message-inner">
+                        <div class="avatar bot-avatar"><i class="fas fa-robot text-white"></i></div>
+                        <div class="message-content">Hello! How can I assist you with cyber law today? <i class="fas fa-scale-balanced" style="color:#d4af37;"></i></div>
+                    </div>
+                </div>
+                <!-- Chat bubbles will go here -->
+            </div>
+
+            <!-- Previews -->
+            <div class="attachment-preview-container hidden" id="attachment-preview">
+                 <!-- Dynamically populated file cards go here -->
+            </div>
+
+            <div class="chat-input-container">
+                <div id="guest-login-prompt" style="display: none; color: #94a3b8; font-size: 13px; margin-bottom: 10px; padding-left: 10px;">
+                    <i class="fas fa-info-circle"></i> <a href="login.html" style="color: #fbbf24; text-decoration: none; font-weight: 500;">Login to save history</a>
+                </div>
+                <div class="input-wrapper">
+                    <div class="attachment-toggle">
+                        <label for="file-upload" class="attachment-label" title="Upload File">
+                            <i class="fas fa-paperclip"></i>
+                        </label>
+                        <input type="file" id="file-upload" hidden accept=".pdf,.txt,.docx" multiple>
+                    </div>
+                    
+                    <input type="text" id="message-input" placeholder="Type your cyber law question...">
+                    
+                    <button class="add-btn" id="voice-btn" title="Voice Input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    
+                    <button type="button" id="send-btn" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

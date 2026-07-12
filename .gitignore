@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nosenv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+*.mo
+*.pot
+*.log
+local_settings.py
+
+# Virtual Environments
+venv/
+.venv/
+ENV/
+env/
+pythonenv/
+
+# IDE / Editor configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# Project-Specific: Environment credentials
+.env
+backend/.env
+
+# Project-Specific: User uploads & DB
+uploads/
+backend/uploads/
+database/*.db
+database/*.db-journal
+
+# Project-Specific: RAG storage & vector caches
+backend/chroma_db/
+backend/faiss_index/
+backend/file_cache/
+backend/user_indices/
