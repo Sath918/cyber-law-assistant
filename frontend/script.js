@@ -636,82 +636,61 @@ if (window.location.pathname.endsWith('index.html') || window.location.pathname 
     async function streamTypewriter(reader, container) {
         const decoder = new TextDecoder();
         let fullText = "";
-        let isDone = false;
-        
         const cursorHtml = '<span class="typing-cursor"></span>';
 
-        // Process stream
-        const readStream = async () => {
+        try {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    isDone = true;
                     break;
                 }
                 const chunk = decoder.decode(value, { stream: true });
                 fullText += chunk;
-            }
-        };
-        readStream();
-
-        // Animation loop
-        const animate = async () => {
-            let lastLength = 0;
-            while (!isDone || lastLength < fullText.length) {
-                if (lastLength < fullText.length) {
-                    const queueSize = fullText.length - lastLength;
-                    // If queue is large, print multiple characters per step to stay caught up
-                    const charsToPrint = queueSize > 30 ? Math.min(queueSize, 5) : 1;
-                    lastLength += charsToPrint;
-                    
-                    const currentText = fullText.slice(0, lastLength);
-                    if (typeof marked !== 'undefined') {
-                        container.innerHTML = marked.parse(currentText) + cursorHtml;
-                    } else {
-                        container.innerHTML = currentText.replace(/\n/g, '<br>') + cursorHtml;
-                    }
-                    scrollToBottom();
-                    
-                    // Adjust typing speed dynamically based on backlog size
-                    const delay = queueSize > 30 ? 5 : 20;
-                    await new Promise(r => setTimeout(r, delay)); 
+                
+                // Render immediately with a cursor
+                if (typeof marked !== 'undefined') {
+                    container.innerHTML = marked.parse(fullText) + cursorHtml;
                 } else {
-                    await new Promise(r => setTimeout(r, 50));
+                    container.innerHTML = fullText.replace(/\n/g, '<br>') + cursorHtml;
                 }
+                scrollToBottom();
             }
-            
-            if (typeof marked !== 'undefined') {
-                container.innerHTML = marked.parse(fullText);
-            } else {
-                container.innerHTML = fullText.replace(/\n/g, '<br>');
-            }
-            
-            // Final update to ensure copy button works with the right text
-            const copyBtn = container.closest('.message-content').querySelector('.copy-btn');
-            if (copyBtn) {
-                copyBtn.onclick = () => {
-                    navigator.clipboard.writeText(fullText).then(() => {
-                        showToast('Copied to clipboard!');
-                    });
-                };
-            }
+        } catch (err) {
+            console.error("Error reading stream:", err);
+        }
 
-            // Final update to ensure share button works with the right text
-            const shareBtn = container.closest('.message-content').querySelector('.share-btn');
-            if (shareBtn) {
-                shareBtn.onclick = () => {
-                    if (navigator.share) {
-                        navigator.share({
-                            title: 'Cyber Law Assistant',
-                            text: fullText
-                        }).catch((err) => console.log('Error sharing:', err));
-                    } else {
-                        showToast('Sharing not supported on this browser', true);
-                    }
-                };
-            }
-        };
-        await animate();
+        // Final render without the cursor
+        if (typeof marked !== 'undefined') {
+            container.innerHTML = marked.parse(fullText);
+        } else {
+            container.innerHTML = fullText.replace(/\n/g, '<br>');
+        }
+        scrollToBottom();
+
+        // Final update to ensure copy button works with the right text
+        const copyBtn = container.closest('.message-content').querySelector('.copy-btn');
+        if (copyBtn) {
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(fullText).then(() => {
+                    showToast('Copied to clipboard!');
+                });
+            };
+        }
+
+        // Final update to ensure share button works with the right text
+        const shareBtn = container.closest('.message-content').querySelector('.share-btn');
+        if (shareBtn) {
+            shareBtn.onclick = () => {
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Cyber Law Assistant',
+                        text: fullText
+                    }).catch((err) => console.log('Error sharing:', err));
+                } else {
+                    showToast('Sharing not supported on this browser', true);
+                }
+            };
+        }
     }
 
     function scrollToBottom() {

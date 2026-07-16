@@ -140,40 +140,7 @@ CONSTRAINTS:
 
         system_instruction = f"{FINAL_PROMPT}\n\nContext:\n{context if context else 'Use general knowledge of Cyber Law IT Act 2000.'}\n\nConversation History:{history_text}"
 
-    # --- Ollama Integration (Primary) ---
-    payload = {
-        "model": OLLAMA_MODEL_NAME,
-        "messages": [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_message}
-        ],
-        "stream": True,
-        "options": {
-            "num_ctx": 4096,
-            "temperature": 0.2,
-            "top_k": 20,
-            "repeat_penalty": 1.2,
-            "num_predict": 1024
-        }
-    }
-
-    try:
-        response = requests.post(OLLAMA_API_URL, json=payload, stream=True, timeout=30)
-        if response.status_code == 200:
-            for line in response.iter_lines():
-                if line:
-                    decoded = json.loads(line.decode('utf-8'))
-                    if "message" in decoded and "content" in decoded["message"]:
-                        chunk = decoded["message"]["content"]
-                        if chunk:
-                            yield chunk
-            return
-        else:
-            print(f"Ollama Error Status: {response.status_code}")
-    except Exception as e:
-        print(f"Ollama Connection Error: {e}")
-
-    # --- Groq Integration (Fallback) ---
+    # --- Groq Integration (Primary) ---
     if GROQ_API_KEY and GROQ_API_KEY.startswith("gsk_"):
         try:
             from groq import Groq
@@ -198,7 +165,7 @@ CONSTRAINTS:
         except Exception as e:
             print(f"Groq Error: {e}")
 
-    # --- Gemini Integration (Fallback 2) ---
+    # --- Gemini Integration (Secondary) ---
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     if GEMINI_API_KEY and GEMINI_API_KEY != "your_gemini_api_key_here":
         try:
@@ -216,6 +183,40 @@ CONSTRAINTS:
             return
         except Exception as e:
             print(f"Gemini Error: {e}")
+
+    # --- Ollama Integration (Tertiary) ---
+    payload = {
+        "model": OLLAMA_MODEL_NAME,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_message}
+        ],
+        "stream": True,
+        "options": {
+            "num_ctx": 4096,
+            "temperature": 0.2,
+            "top_k": 20,
+            "repeat_penalty": 1.2,
+            "num_predict": 1024
+        }
+    }
+
+    try:
+        # Use fail-fast timeout: 2.0s connect, 15.0s read
+        response = requests.post(OLLAMA_API_URL, json=payload, stream=True, timeout=(2.0, 15.0))
+        if response.status_code == 200:
+            for line in response.iter_lines():
+                if line:
+                    decoded = json.loads(line.decode('utf-8'))
+                    if "message" in decoded and "content" in decoded["message"]:
+                        chunk = decoded["message"]["content"]
+                        if chunk:
+                            yield chunk
+            return
+        else:
+            print(f"Ollama Error Status: {response.status_code}")
+    except Exception as e:
+        print(f"Ollama Connection Error: {e}")
 
     # --- Database Fallback ---
     if context:
