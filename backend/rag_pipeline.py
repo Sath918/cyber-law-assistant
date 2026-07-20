@@ -78,6 +78,20 @@ import hashlib
 import re
 import shutil
 from langchain_core.documents import Document
+
+from pydantic.v1 import BaseModel
+
+def _patch_document_setstate(self, state):
+    if isinstance(state, dict) and '__dict__' not in state:
+        fields_set = set(state.keys())
+        state = {
+            '__dict__': state,
+            '__fields_set__': fields_set
+        }
+    BaseModel.__setstate__(self, state)
+
+Document.__setstate__ = _patch_document_setstate
+
 from database import get_db_connection
 
 def compute_file_hash(filepath):

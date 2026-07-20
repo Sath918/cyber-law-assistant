@@ -10,6 +10,12 @@ def run_test():
     # 1. Initialize DB
     init_db()
     
+    # Clean up previous test runs
+    conn = get_db_connection()
+    conn.execute("DELETE FROM files WHERE user_id = 9999")
+    conn.commit()
+    conn.close()
+    
     # 2. Setup temporary paths
     user_id = 9999
     session_id = "test_session_abc"
