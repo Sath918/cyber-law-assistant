@@ -70,11 +70,13 @@ def limit_response(text, max_words=60):
         return limited[:last_dot+1]
     return limited + "..."
 
-def has_session_files(session_id):
+def has_session_files(user_id, session_id):
+    if not user_id:
+        return False
     from database import get_db_connection
     try:
         conn = get_db_connection()
-        count = conn.execute("SELECT COUNT(*) FROM files WHERE session_id = ? AND status = 'ready'", (session_id,)).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM files WHERE user_id = ? AND session_id = ? AND status = 'ready'", (user_id, session_id)).fetchone()[0]
         conn.close()
         return count > 0
     except Exception as e:
@@ -101,7 +103,7 @@ def generate_ai_response_stream(user_message, language_mode='en', history=None, 
             history_text += f"\nUser: {chat['message']}\nAssistant: {chat['response']}"
 
     # Determine if we are in Document Analysis Mode or Cyber Law Assistant Mode
-    if has_session_files(session_id):
+    if has_session_files(user_id, session_id):
         # --- DOCUMENT ANALYSIS MODE ---
         from rag_pipeline import retrieve_session_context
         try:

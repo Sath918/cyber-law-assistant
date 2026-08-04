@@ -636,28 +636,69 @@ if (window.location.pathname.endsWith('index.html') || window.location.pathname 
     async function streamTypewriter(reader, container) {
         const decoder = new TextDecoder();
         let fullText = "";
+        let displayedText = "";
         const cursorHtml = '<span class="typing-cursor"></span>';
+        
+        let doneReading = false;
+        let pendingText = "";
 
+        // Background stream reader
+        const readPromise = (async () => {
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+                    const chunk = decoder.decode(value, { stream: true });
+                    pendingText += chunk;
+                    fullText += chunk;
+                }
+            } catch (err) {
+                console.error("Error reading stream:", err);
+            } finally {
+                doneReading = true;
+            }
+        })();
+
+        // Smooth typewriter loop
         try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    break;
-                }
-                const chunk = decoder.decode(value, { stream: true });
-                fullText += chunk;
-                
-                // Render immediately with a cursor
-                if (typeof marked !== 'undefined') {
-                    container.innerHTML = marked.parse(fullText) + cursorHtml;
+            while (!doneReading || pendingText.length > 0) {
+                if (pendingText.length > 0) {
+                    // Pull characters from pendingText. Type faster if backlog is large.
+                    let charsToType = 1;
+                    if (pendingText.length > 100) {
+                        charsToType = 6;
+                    } else if (pendingText.length > 50) {
+                        charsToType = 4;
+                    } else if (pendingText.length > 20) {
+                        charsToType = 2;
+                    }
+
+                    const segment = pendingText.substring(0, charsToType);
+                    pendingText = pendingText.substring(charsToType);
+                    displayedText += segment;
+
+                    if (typeof marked !== 'undefined') {
+                        container.innerHTML = marked.parse(displayedText) + cursorHtml;
+                    } else {
+                        container.innerHTML = displayedText.replace(/\n/g, '<br>') + cursorHtml;
+                    }
+                    scrollToBottom();
+
+                    // Typewriter speed tick (e.g. 15ms)
+                    await new Promise(resolve => setTimeout(resolve, 15));
                 } else {
-                    container.innerHTML = fullText.replace(/\n/g, '<br>') + cursorHtml;
+                    // Wait for more stream data from network
+                    await new Promise(resolve => setTimeout(resolve, 50));
                 }
-                scrollToBottom();
             }
         } catch (err) {
-            console.error("Error reading stream:", err);
+            console.error("Error in typewriter loop:", err);
         }
+
+        // Wait for reader thread to finish
+        await readPromise;
 
         // Final render without the cursor
         if (typeof marked !== 'undefined') {
